@@ -1,0 +1,21 @@
+from std/net/http import UserAgent;
+from std/data/json import JSON;
+from std/proc import Env;
+
+let key     := Env.get("OPENAI_API_KEY", "");
+let ua      := new UserAgent();
+let json    := new JSON();
+
+let payload := {
+	model: "gpt-4o-mini",
+	input: "Write one sleepy raccoon haiku about coffee.",
+};
+
+let response := ua.post(
+	"https://api.openai.com/v1/responses",
+	json.encode(payload),
+	{ authorization: "Bearer " _ key, content_type: "application/json" }
+);
+
+let response_data := json.decode( response.content );
+say response_data{"output_text"};

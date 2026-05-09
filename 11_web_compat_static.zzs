@@ -1,0 +1,35 @@
+from std/io import Path;
+
+function __request__ ( env ) {
+	let path := env.get( "path" );
+
+	if ( path eq "/text" ) {
+		return [
+			200,
+			{ "Content-Type": "text/plain; charset=UTF-8" },
+			[ "text response\n" ],
+		];
+	}
+
+	if ( path eq "/binary" ) {
+		return [
+			200,
+			{ "Content-Type": "application/octet-stream" },
+			to_binary( "binary response\n" ),
+		];
+	}
+
+	if ( path eq "/file" ) {
+		return [
+			200,
+			{{}},
+			new Path( "docs/web-server-sketch.txt" ),
+		];
+	}
+
+	return [
+		404,
+		{ "Content-Type": "text/plain; charset=UTF-8" },
+		[ "Not Found\n" ],
+	];
+}

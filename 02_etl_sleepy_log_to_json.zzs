@@ -1,0 +1,12 @@
+from std/io import Path;
+from std/string import split, trim;
+from std/data/json import JSON;
+
+let rows := new Path("zia_naps.csv").lines_utf8();
+let naps := [];
+for ( let line in rows.tail() ) {
+	let parts := split( trim(line), "," );
+	naps.push( { date: parts.get(0, ""), minutes: parts.get(1, "0") + 0 } );
+}
+new JSON( pretty: true ).dump( new Path("zia_naps.json"), naps );
+say("Wrote zia_naps.json from sleepy CSV data.");

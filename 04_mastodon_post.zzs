@@ -1,0 +1,11 @@
+from std/net/http import UserAgent;
+from std/net/url import escape;
+from std/proc import Env;
+
+let token := Env.get("MASTODON_TOKEN", "");
+let server := Env.get("MASTODON_SERVER", "");
+let status := "Zia just finished a coding session and did a cartwheel. 🦝☕";
+let ua := new UserAgent();
+let body := "status=" _ escape(status);
+let res := ua.post( server _ "/api/v1/statuses", body, { authorization: "Bearer " _ token, content_type: "application/x-www-form-urlencoded" } );
+say( "Posted with HTTP status: " _ res.status() );

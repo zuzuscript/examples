@@ -1,0 +1,9 @@
+from std/string import replace, split, join, title;
+
+let note := "zia likes coffee; zia likes coding; zia likes cartwheels";
+let bright := replace( note, /zia/g, "Zia 🦝" );
+let bits := split( bright, "; " );
+let headline := title("sleepy raccoon daily digest");
+
+say(headline);
+say( "- " _ join( "\n- ", bits ) );

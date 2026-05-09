@@ -1,0 +1,137 @@
+from std/gui import *;
+
+function log ( String message ) {
+	say "[gui demo] " _ message;
+}
+
+let status := Text(
+	id: "status",
+	value: "Ready. Try the checkbox, text, image, input, or close button.",
+	readonly: true,
+	wrap: true,
+);
+
+let name := Input(
+	id: "name",
+	value: "Ada",
+	placeholder: "Name",
+);
+
+let active := Checkbox(
+	id: "active",
+	label: "Active",
+	checked: false,
+);
+
+let info_text := Text(
+	id: "info-text",
+	value: "Clickable text panel",
+	readonly: true,
+	wrap: true,
+);
+
+let logo := Image(
+	id: "logo",
+	src: "examples/gui-demo-image.png",
+	alt: "Demo image",
+	height: 80,
+	width: 160,
+);
+
+let choice := RadioGroup(
+	id: "choice",
+	name: "choice",
+	value: "simple",
+	Radio( label: "Simple", value: "simple" ),
+	Radio( label: "Detailed", value: "detailed" ),
+);
+
+let theme := Select(
+	id: "theme",
+	value: "light",
+	options: [
+		{ label: "Light", value: "light" },
+		{ label: "Dark", value: "dark" },
+		{ label: "System", value: "system" },
+	],
+);
+
+let close_button := Button(
+	id: "close",
+	text: "Close",
+	variant: "primary",
+);
+
+let window := Window(
+	title: "Zuzu GUI Controls Demo",
+	width: 520,
+	height: 480,
+	VBox(
+		id: "root",
+		gap: 8,
+		padding: 12,
+		Label( text: "Name", ("for"): "name" ),
+		name,
+		active,
+		Frame(
+			label: "Clickable content",
+			HBox(
+				gap: 8,
+				info_text,
+				logo,
+			),
+		),
+		Frame(
+			label: "Options",
+			choice,
+			theme,
+		),
+		status,
+		close_button,
+	),
+);
+
+active.change( function () {
+	if ( active.checked() ) {
+		status.value("Checkbox checked.");
+		log("checkbox checked");
+	}
+	else {
+		status.value("Checkbox unchecked.");
+		log("checkbox unchecked");
+	}
+} );
+
+info_text.click( function () {
+	status.value("Text panel clicked.");
+	log("text clicked");
+} );
+
+logo.click( function () {
+	status.value("Image clicked: " _ logo.alt());
+	log("image clicked");
+} );
+
+name.input( function () {
+	status.value("Input changed to: " _ name.value());
+	log("input value is " _ name.value());
+} );
+
+choice.change( function () {
+	status.value("Radio choice: " _ choice.value());
+	log("radio choice is " _ choice.value());
+} );
+
+theme.change( function () {
+	status.value("Theme selected: " _ theme.value());
+	log("theme selected: " _ theme.value());
+} );
+
+close_button.click( function () {
+	status.value("Closing.");
+	log("close clicked");
+	window.close("closed by button");
+} );
+
+log("opening window");
+log( "Window result: " _ window.call() );

@@ -1,0 +1,125 @@
+from std/gui/dialogue import
+	alert,
+	confirm,
+	prompt,
+	file_open,
+	file_save,
+	directory_open,
+	directory_save,
+	colour_picker;
+
+function display ( value ) {
+	return value ≡ null ? "<null>" : "" _ value;
+}
+
+function report ( String label, value ) {
+	say label _ ": " _ display(value);
+}
+
+async function wait_for_dialogue ( value ) {
+	return value;
+}
+
+async function __main__ () {
+	say "Zuzu GUI dialogue demo";
+	say "Cancel any dialogue to see its cancel result.";
+
+	await {
+		wait_for_dialogue(
+			alert(
+				"This script will open every std/gui/dialogue helper.",
+				title: "Dialogue Demo",
+			),
+		);
+	};
+	report( "alert", null );
+
+	report(
+		"confirm",
+		await {
+			wait_for_dialogue(
+				confirm(
+					"Continue through the remaining dialogues?",
+					title: "Confirm",
+					value: true,
+				),
+			);
+		},
+	);
+
+	report(
+		"prompt",
+		await {
+			wait_for_dialogue(
+				prompt(
+					"Enter a short label:",
+					title: "Prompt",
+					value: "Zuzu",
+					placeholder: "Label",
+				),
+			);
+		},
+	);
+
+	report(
+		"file_open",
+		await {
+			wait_for_dialogue(
+				file_open(
+					title: "Open File",
+					value: "examples/09_gui_dialogue_demo.zzs",
+				),
+			);
+		},
+	);
+
+	report(
+		"file_save",
+		await {
+			wait_for_dialogue(
+				file_save(
+					title: "Save File",
+					value: "dialogue-demo-output.txt",
+				),
+			);
+		},
+	);
+
+	report(
+		"directory_open",
+		await {
+			wait_for_dialogue(
+				directory_open(
+					title: "Open Directory",
+					value: ".",
+				),
+			);
+		},
+	);
+
+	report(
+		"directory_save",
+		await {
+			wait_for_dialogue(
+				directory_save(
+					title: "Save Directory",
+					value: ".",
+				),
+			);
+		},
+	);
+
+	report(
+		"colour_picker",
+		await {
+			wait_for_dialogue(
+				colour_picker(
+					title: "Choose Colour",
+					value: "#336699",
+				),
+			);
+		},
+	);
+
+	say "Dialogue demo complete.";
+}

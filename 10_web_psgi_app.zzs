@@ -1,0 +1,18 @@
+function __request__ ( env ) {
+	let headers := env.get( "headers" );
+	return [
+		200,
+		{
+			"Content-Type": "text/plain; charset=UTF-8",
+			"X-Zuzu-Method": env.get( "method" ),
+		},
+		[
+			"ZuzuScript PSGI example\n",
+			"method: ", env.get( "method" ), "\n",
+			"path: ", env.get( "path" ), "\n",
+			"query: ", env.get( "query_string" ), "\n",
+			"x-demo: ", headers.get( "X-Demo", "" ), "\n",
+			"body: ", env.get( "body_text" ), "\n",
+		],
+	];
+}

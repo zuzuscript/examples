@@ -1,0 +1,13 @@
+class Raccoon {
+	let name;
+	let hobbies;
+	method intro () {
+		return name _ " loves " _ hobbies.join(", ") _ ".";
+	}
+}
+
+let zia := new Raccoon(
+	name: "Zia",
+	hobbies: [ "reading", "coding", "coffee", "cartwheels" ],
+);
+say( zia.intro() );

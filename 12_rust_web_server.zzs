@@ -1,0 +1,35 @@
+from std/io import Path;
+
+function __request__ ( env ) {
+	let req_method := env.get( "method" );
+	let path := env.get( "path" );
+	let query := env.get( "query_string" );
+
+	if ( path == "/" ) {
+		let text := "ZuzuScript Rust web server example\n";
+		text := text _ "method: " _ req_method _ "\n";
+		text := text _ "path: " _ path _ "\n";
+		text := text _ "query: " _ query _ "\n";
+		text := text _ "try: /sketch\n";
+
+		return [
+			200,
+			{ "Content-Type": "text/plain; charset=UTF-8" },
+			[ text ],
+		];
+	}
+
+	if ( path == "/sketch" ) {
+		return [
+			200,
+			{{}},
+			new Path( "docs/web-server-sketch.txt" ),
+		];
+	}
+
+	return [
+		404,
+		{ "Content-Type": "text/plain; charset=UTF-8" },
+		[ "Not Found\n" ],
+	];
+}
