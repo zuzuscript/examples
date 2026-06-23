@@ -342,7 +342,48 @@ remain failing.
 
 ### Phase 4
 
-TODO.
+Fixed two remaining sources of broken/stranded multiline call-argument
+formatting in `lib/Zuzu/Tidy.pm`.
+
+- **Spurious blank line inside a call.** `call_twice(function(value) {
+  ... }, 4)` was getting a blank line inserted between the callback's
+  closing `}` and the trailing `, 4, );`, because
+  `_apply_vertical_spacing_rules`'s "5+ line block gets a blank line
+  around it" heuristic applies to *any* brace block, including a callback
+  body that is itself a call argument, not just standalone statement
+  blocks. Added a running paren/bracket-depth counter to that function's
+  line scan, recorded on each open block as `is_call_argument`, and
+  skip the blank-line treatment when it's set.
+- **Stranded trailing call arguments.** Once the callback's `}` properly
+  avoided the blank line, the remaining arguments (`, 4, );`) were still
+  flushed onto their own oddly-indented line, because closing a `block`-
+  or `expr_block`-kind brace unconditionally flushes the line. Added a
+  check in the main token loop: if the brace being closed is a `block` or
+  `expr_block` kind, we're still inside an open call/grouping paren
+  (`$paren_depth > 0`), and the next token is `,` or `)`, skip the flush
+  so the next token is appended to the same line. This covers both
+  `function(...) { ... }` callback arguments (script 04) and `await {
+  ... }` expression-block arguments (script 05, e.g. `is( await { ... },
+  6, "..." )`), producing `}, 4 );` / `}, 6, "..." );` instead of
+  stranding the trailing arguments on a disconnected line.
+
+Index/call-splitting and pairlist-spread wrapping were already fixed in
+Phase 2 (the depth-aware `_find_matching_sequence_close` and the
+`_pairlist_half` tagging), so no further changes were needed there for
+this phase's "never wrap inside indexing brackets/pairlist braces/spread
+prefixes" requirement.
+
+Verified: `t/integration/tidy.t` assertion 110 (added in Phase 1) now
+passes — only assertion 86 (the pre-existing, unrelated
+`std/path/z/node.zzm` runtime bug, todo'd at 96) remains failing.
+`prove -lr t/` shows no other regressions. All five auto-tidied
+`uglified/*.zzs` fixtures were re-run cross-runtime with the same results
+as Phase 3 (script 03 still blocked only by that pre-existing bug under
+`zuzu-perl`). The exact one-argument-per-line splitting shown in
+`manually-tidied/04-...zzs` for `fold_label(...)` was not pursued further:
+the call already parses, runs, and is visually nested correctly as-is,
+and byte-for-byte matching to `manually-tidied` is explicitly not
+required.
 
 ### Phase 5
 
