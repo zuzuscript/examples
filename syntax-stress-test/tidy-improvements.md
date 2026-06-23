@@ -387,7 +387,49 @@ required.
 
 ### Phase 5
 
-TODO.
+Fixed four whitespace rules in `lib/Zuzu/Tidy.pm`'s operator-spacing
+tables.
+
+- **Switch comparator spacing.** `switch ( n mod 4: = )` had no space
+  before the `:` that separates the switch subject from its comparator
+  operator. Added `_is_switch_comparator_colon`, which walks up to the
+  nearest enclosing unmatched bracket and checks it's a `(` opened
+  directly by `switch` (not some deeper bracket, e.g. a slice inside the
+  subject expression), and forces a space before that specific `:` only
+  — every other use of `:` (case labels, dict keys, ternaries, slices)
+  stays tight as before.
+- **Access chains.** `data{users}[0]{roles}` was getting a stray space
+  before `[`: the rule that adds a space before `[` after most operators
+  excluded `)` and `]` (so `f()[0]` and `a[0][1]` stayed tight) but not
+  `}`, so a dict-access brace followed by an index always got a space.
+  Added `}` to that exclusion.
+- **Slices.** `text[1:2]` was rendered as `text[ 1: 2 ]`: the generic
+  "complex content needs inner space" rule for `[...]` didn't recognise
+  a slice shape, and nothing suppressed the space the dict-key-colon
+  convention adds after `:`. Added `_is_simple_slice_inner` (zero or more
+  `:`-separated parts, each empty or a single simple token) used both in
+  `_paren_needs_inner_space` (to keep the brackets tight) and in a new
+  `_is_slice_colon` check (to keep the colon itself tight), covering
+  omitted bounds (`arr[:2]`, `arr[1:]`, `arr[:]`) as well as the plain
+  case.
+- **Concatenation around punctuation literals.** `text _":" _ item` was
+  missing the space between `_` and the string `":"`. Root cause:
+  `_need_space_before` compares `$tok->value` against operator-character
+  tables without checking the token is actually an `OP` — for a STRING
+  token, `->value` is its *decoded content*, so a one-character string
+  whose content happens to equal `:`, `,`, `)`, etc. was indistinguishable
+  from that operator and got tightened against its neighbour by
+  coincidence. Guarded the `$NO_SPACE_BEFORE`/`$NO_SPACE_AFTER` lookups
+  with `$tok->is_OP`/`$prev->is_OP` so this only fires for genuine
+  operator tokens.
+
+Added six focused regression tests (one per rule, plus omitted-bound
+slice variants) to `t/integration/tidy.t`. Verified: all six pass,
+existing operator-canonicalisation tests (13, 15–25, 48–49, 73–74) are
+unaffected, and `prove -lr t/` shows no other regressions — only the
+pre-existing, unrelated `std/path/z/node.zzm` bug (86/96) remains
+failing. Re-checked all five fixtures cross-runtime with the same
+results as Phase 4.
 
 ### Phase 6
 
