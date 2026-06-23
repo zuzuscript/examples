@@ -293,7 +293,52 @@ shows no regressions outside the still-open Phase 3/4 assertions in
 
 ### Phase 3
 
-TODO.
+Fixed declaration-block brace classification and adjacent
+control-continuation spacing in `lib/Zuzu/Tidy.pm`.
+
+- **Root cause:** `_is_inline_brace` decided block-vs-inline by looking a
+  fixed 1–2 tokens behind the `{`. That works for `if (...) {` (fixed
+  distance) but breaks for declarations with a variable-length clause
+  between the keyword and the brace: a return-type arrow
+  (`function f() -> String {`) or a trait list
+  (`class Record with Labelled {`). In both cases the token immediately
+  before `{` is an identifier (the return type or the last trait name),
+  not the declaring keyword, so the existing heuristic fell through to
+  treating the brace as inline.
+- **Fix:** added `_tag_declaration_block_braces`, which scans forward
+  from each `class`/`trait`/`function`/`method` keyword (skipping an
+  optional name, a balanced parameter-list `(...)`, an optional
+  `extends Base` / `with Trait, ...` / `but Trait` clause, and an
+  optional `-> Type` arrow) and tags the `{` it lands on with
+  `_forced_block`. `_is_inline_brace` checks this tag first, before any
+  of the old context heuristics, so the brace is always classified as a
+  block regardless of what token directly precedes it. `async function`
+  and `static method` need no special handling since the scan starts at
+  the `function`/`method` token itself, wherever it is.
+- **Cuddled continuations:** `_apply_vertical_spacing_rules` was adding a
+  blank line after the closing `}` of any 5+ line block unconditionally,
+  including when the next line was `catch` or `else`. It now checks
+  whether the next non-blank line starts with `catch`/`else` and skips
+  the blank line in that case, so `try`/`catch` and `for`/`else` stay
+  adjacent for longer bodies (this previously already worked for bodies
+  under 5 lines, which don't hit that rule).
+
+Also fixed two test assertions left over from Phase 1/2 that used `\s*`
+in their "bad shape" regexes — `\s` matches newlines, so e.g.
+`qr/\{\s*let\b/` matched the *correct* `{\n\tlet ...` output just as
+happily as the broken inline shape it was meant to catch. Replaced with
+`[ \t]*` (same-line only) in the four brace-newline assertions and the
+static-method-collapse assertion.
+
+Verified: `t/integration/tidy.t` assertions 103–109 (added in Phase 1) now
+pass. All five fixtures' auto-tidied output was spot-checked against
+`manually-tidied` for class/trait/method structure (script 02) and
+remains parseable/runnable under all three runtimes with the same
+results as Phase 2 (script 03 still only blocked by the pre-existing,
+unrelated `std/path/z/node.zzm` runtime bug under `zuzu-perl`).
+`prove -lr t/` shows no regressions; only `tidy.t` assertion 110
+(multiline call arguments, Phase 4's target) and the todo'd assertion 96
+remain failing.
 
 ### Phase 4
 
