@@ -476,3 +476,91 @@ Acceptance results:
 
 All Phase 1–6 exit criteria are met.
 
+## Follow-up: Trailing Comma Forces Multi-Line Sequences
+
+A separate, later request (not part of the six phases above): a literal
+trailing comma immediately before a sequence's closing delimiter — array,
+dict, pairlist, set, bag, guillemet-set literals, and call/parameter
+argument lists (both call sites and declarations) — should force that
+sequence onto one item per line with the trailing comma preserved, even
+when it would otherwise fit on one line. A sequence without a trailing
+comma is unaffected and keeps using the existing length-based wrapping.
+Planned and implemented in a separate session; full design notes are in
+that session's plan file. Summary here for the project history this
+document otherwise tracks.
+
+Implementation, in `Zuzu::Tidy`:
+
+- Extended `_build_pair_map` to also pair `<<`/`>>`, `<<<`/`>>>`, and
+  `«`/`»` (previously only `(`/`[`/`{`/`⌊`/`⌈`), with disambiguation for
+  `<<` and `«` against their dual use as a real binary "shift" operator
+  (confirmed in the parser's precedence table) — they're only pushed as
+  openers when in primary/operand position, i.e. not immediately after a
+  token that could end an expression.
+- Added a new forward pre-pass, `_tag_trailing_comma_sequences`, that
+  tags an open delimiter `_force_sequence` when the token immediately
+  before its matching close (via the now-extended pair map) is a literal
+  comma — the same "decide once in a pre-pass, then just check the tag"
+  pattern already used for `_forced_block`.
+- Generalized the pairlist-only `@pairlist_body_stack` into a unified
+  `@sequence_stack` pushed/popped for every open/close of `(`, `[`, `{`,
+  `<<`, `<<<`, `«`, which let the old depth-guard comparison
+  (`$paren_depth == ... and $bracket_depth == ...`) be deleted entirely:
+  once every bracket type has its own stack entry, the top of the stack
+  is always exactly the innermost active delimiter, so the comma
+  separator and trailing-comma-insertion checks collapse to a plain
+  "is the top of the stack a forced sequence" test.
+- Added open/close handling for `(`, `[`, `<<`, `<<<`, `«` mirroring the
+  existing `{` block-open/close machinery (forced newline+indent on
+  open, dedent+trailing-comma on close), plus a new `$angle_depth`
+  counter for `<<`/`<<<`/`«` nesting.
+
+Two latent, pre-existing bugs surfaced once native multi-line output
+stopped being silently reconstructed by the post-processing passes, and
+were fixed as part of this work:
+
+- `_normalize_split_sequence_literals` (the long-line, no-trailing-comma
+  reconstruction pass) joined a sequence's already-correctly-split inner
+  lines with spaces and re-split on every comma, which corrupted nested
+  same-type sequences (a comma *inside* an inner array was indistinguishable
+  from the outer array's own separator). Fixed by adding a depth-aware
+  `_split_top_level_commas` helper, and by skipping any line where
+  nothing follows the open delimiter (a reliable signal that the line was
+  already split natively and needs no reconstruction).
+- `_apply_vertical_spacing_rules` added a blank line before/after any
+  brace opened by the `function`/`method` keyword, without the same
+  `is_call_argument` guard already used for its "5+ line block" rule —
+  so an anonymous function literal used as a call/array argument got
+  spurious blank-line padding once its body was no longer being
+  flattened by the bug above. Added the missing guard.
+- `_build_pair_map` compared raw token *values* without checking the
+  token was actually an operator, so a string literal whose decoded
+  content happened to equal a bracket character (e.g. the string `"("`
+  in `left:"("`) was mistaken for a real `(` and corrupted the pairing
+  for everything after it in the same chunk. Guarded with `is_OP`,
+  matching the same fix already applied to `_need_space_before` in
+  Phase 5 for the analogous string/operator collision.
+
+Also removed `_strip_single_line_trailing_literal_commas`: once the
+native mechanism above intercepts every trailing-comma case before it
+ever reaches single-line rendering, this regex-based cleanup pass had
+nothing left to do (confirmed by temporarily disabling it and re-running
+the full suite with no change in results).
+
+Rewrote 5 existing `t/integration/tidy.t` assertions whose source already
+had a trailing comma and previously expected it stripped on one line;
+added 8 new tests covering declarations, single-item sequences, nesting,
+a sequence without a trailing comma (unaffected), and `<<`/`>>` used as a
+genuine binary operator (not a set literal).
+
+Verified: `prove -lr t/integration/tidy.t` and `prove -lr t/` both fully
+pass (1072 tests, no regressions). All five `uglified/*.zzs` fixtures
+re-tidy cleanly and run identically under `zuzu-perl`, `zuzu-js`, and
+`zuzu-rust` (same pre-existing, unrelated script 03 `std/path/z/node.zzm`
+bug as every prior phase). Diffed each re-tidied fixture against both the
+pre-this-feature baseline and `manually-tidied/`: the only new diffs are
+calls/arrays that now correctly split one-item-per-line because their
+source has a trailing comma (e.g. `fold_label(...)` and `call_twice(...)`
+in script 04 now match `manually-tidied` even more closely than before);
+script 01 has zero diff against its pre-feature baseline.
+
