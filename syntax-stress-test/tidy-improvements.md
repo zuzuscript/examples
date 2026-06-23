@@ -237,7 +237,59 @@ visible test failure rather than silently auto-passing.
 
 ### Phase 2
 
-TODO.
+Root-caused and fixed the pairlist-delimiter and index-splitting bugs in
+`lib/Zuzu/Tidy.pm`, instead of patching around them with regexes.
+
+- **Pairlist halves are now tagged, not guessed.** `_normalize_tokens`
+  still splits a single lexer `{{`/`}}` token into two `{`/`}` tokens (the
+  rest of the formatter is built around single-brace tokens), but each
+  synthesized half is now tagged with `_pairlist_half` (`open1`/`open2`/
+  `close1`/`close2`) directly on the token object. `_is_inline_brace`
+  checks this tag first and unconditionally treats `open1` as inline and
+  `open2` as a block-opener, regardless of what precedes the pair. This
+  was the actual root cause of the `...{{ ... }}` bug: the old context-only
+  heuristic only recognised `{{` as inline when preceded by `:=`, `=`, `,`,
+  `(`, `[`, or `:` — a spread `...` wasn't in that list, so the first `{`
+  fell back to being treated as its own nested block, producing the
+  reported `...{` + nested `{ ... }` shape.
+- **Closing `}}` is kept tight at the token-loop level**, not stitched
+  back together by post-hoc regex. `close1` now skips the normal
+  block-closing flush so it stays on the same line as `close2`, and
+  `_need_space_before` only suppresses the space between two adjacent `}`
+  tokens when they are a real tagged `close1`/`close2` pair (genuinely
+  independent adjacent closing braces, e.g. nested dict literals, still
+  get a space, since collapsing those to `}}` would re-lex as a pairlist
+  close).
+- **Pairlist bodies get one-entry-per-line and trailing commas natively.**
+  A parallel `@pairlist_body_stack` (tracking `[is_pairlist_body,
+  paren_depth, bracket_depth]` per open brace) lets the main loop treat a
+  top-level comma inside a pairlist body as a line break, the same way
+  `;` is treated as a statement separator, and append a trailing comma
+  when closing. The paren/bracket-depth guard means commas that belong to
+  a nested call or array inside a pairlist value (e.g.
+  `{{ a: [1,2,3], b: f(1,2) }}`) are correctly left alone. This made the
+  old `_normalize_split_brace_literals` regex pass (which depended on
+  recognising the specific broken `}\n};` shape the old bug produced)
+  entirely dead code, so it was deleted along with its call site.
+- **Index/call expressions are never split by line-wrapping**, fixed by
+  replacing the naive "first occurrence of the close character on a later
+  line" scan in `_normalize_split_sequence_literals` with a depth-aware
+  scan (new `_find_matching_sequence_close`). The old scan found the
+  closing `]` of an *inner* `[0]` index and mistook it for the closing `]`
+  of the *outer* array literal, which is exactly what produced
+  `async_lambdas[0,` / `](10);` in script 05.
+
+Verified: `lib/Zuzu/Tidy.pm` t/integration/tidy.t assertions 87–90 and 101,
+102, 111 (added in Phase 1) now pass. All five auto-tidied
+`uglified/*.zzs` fixtures parse; scripts 01, 02, 04, and 05 now run
+cleanly under `zuzu-perl`, `zuzu-js`, and `zuzu-rust`. Script 03's
+auto-tidied output now also parses and runs under `zuzu-js`/`zuzu-rust`,
+and under `zuzu-perl` it gets past parsing and fails only on the same
+pre-existing, unrelated `std/path/z/node.zzm` runtime bug noted in Phase 1
+(not a new regression — the still-messy `data` dict formatting for script
+03 from Known Issue 2 is unaddressed until a later phase). `prove -lr t/`
+shows no regressions outside the still-open Phase 3/4 assertions in
+`tidy.t` (103–110) and the pre-existing todo'd bug (86/96).
 
 ### Phase 3
 
