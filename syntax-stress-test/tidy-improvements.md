@@ -433,5 +433,46 @@ results as Phase 4.
 
 ### Phase 6
 
-TODO.
+Found and fixed one more stranding bug while running the full acceptance
+pass, then verified all exit criteria.
+
+- **Stray semicolon line.** `let protected := try { ... } catch (...) {
+  ... };` (a `try`/`catch` used as an expression value, script 01) put
+  the statement-terminating `;` alone on its own line after the catch's
+  closing `}`, the same family of bug fixed for call arguments in Phase
+  4. A `block`-kind close (not just `expr_block`) immediately followed
+  by an explicit `;` now glues that `;` onto the closing `}`'s line
+  instead of flushing it separately.
+
+Acceptance results:
+
+- `prove -lr t/integration/tidy.t`: **118/118 pass** (the one
+  pre-existing, unrelated `std/path/z/node.zzm` runtime-bug assertion is
+  `todo`'d, for both the auto-tidied and manually-tidied script 03
+  loops).
+- `prove -lr t/` (full `zuzu-perl` suite): **all pass**, no regressions.
+- All five `uglified/*.zzs` fixtures tidied to a scratch directory
+  (`/tmp/phase6-tidy-out`, not committed) and run under `zuzu-perl`,
+  `zuzu-js`, and `zuzu-rust`: **14/15 runtime combinations pass**; the
+  one failure (script 03 under `zuzu-perl`) is the same pre-existing
+  `Node.children()` indexing bug confirmed in Phase 1 to reproduce on the
+  never-tidied original source, unrelated to `Zuzu::Tidy`.
+- Diffed each scratch-tidied output against `examples/syntax-stress-test/manually-tidied/`:
+  no structural problems remain. Differences are blank-line placement
+  around comments/declarations (a stylistic choice this plan never
+  specified) and the still-dense `data` dict literal in script 03 (Known
+  Issue 2, not required by any phase's exit criteria — it parses and
+  runs correctly, just isn't split across lines as nicely as the
+  hand-written version). One difference is actually a fix on this
+  branch's side: `manually-tidied/01-control-and-literals.zzs` itself
+  has `raw[ 0: 3 ]` (the old, spaced-out slice style the plan's Known
+  Issues section calls out as broken), while this branch now correctly
+  produces the tight `raw[0:3]` called for by that same section and
+  already used elsewhere in `manually-tidied/03-...zzs`'s `text[1:2]`.
+  `manually-tidied` was not modified to match, per the Assumptions.
+- Confirmed via `git status` in both repositories that no tracked files
+  under `examples/syntax-stress-test/manually-tidied` or
+  `examples/syntax-stress-test/auto-tidied-1` were modified.
+
+All Phase 1–6 exit criteria are met.
 
