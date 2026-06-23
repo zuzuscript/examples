@@ -196,7 +196,44 @@ this in `zuzu-perl/lib/Zuzu/Tidy.pm`, covered by
 
 ### Phase 1
 
-TODO.
+Added a regression harness without touching `Zuzu::Tidy` production code.
+
+- Copied the five `examples/syntax-stress-test/uglified/*.zzs` files verbatim
+  into `zuzu-perl/t/fixtures/ugly/` (confirmed byte-identical via `diff`).
+- Extended `zuzu-perl/t/integration/tidy.t` with a fixture-driven loop that,
+  for each of the five fixtures: tidies it with `Zuzu::Tidy->tidy`, asserts
+  the result parses with `Zuzu::Parser`, writes it to a temp file, and runs
+  it under `bin/zuzu.pl` (with `-I stdlib/modules -I stdlib/test-modules`),
+  checking for a clean TAP pass.
+- Added the same parse+run assertions for the corresponding
+  `examples/syntax-stress-test/manually-tidied/*.zzs` files (read directly,
+  not copied/modified).
+- Added eleven focused assertions reproducing the specific bad shapes from
+  the Known Issues section: pairlist spread (`...{{ ... }}` must not split
+  into nested `{ { ... } }`), forced newline after the opening brace for
+  `class`, `function`, `method`, and `async function`, no `} static method`
+  collapse, no blank line between `}`/`catch` or `}`/`else` after a 5+ line
+  block, no stranded trailing call argument after a closing callback `}`,
+  and no line break inside `[0]` of `async_lambdas[0](10)`.
+
+Result: `prove -lv t/integration/tidy.t` now reports 111 assertions, 17
+failing — all 17 failures are exactly the issues this plan sets out to fix
+(the 6 fixture-loop failures for scripts 03/04/05, and the 11 new focused
+assertions for pairlist spread, brace placement, static-method collapse,
+try/catch and for/else cuddling, multiline call arguments, and index-call
+splitting). Scripts 01 and 02 already round-trip cleanly. No code in
+`lib/Zuzu/Tidy.pm` was modified in this phase.
+
+One unrelated pre-existing bug was discovered and is **not** in scope for
+this plan: `examples/syntax-stress-test/manually-tidied/03-collections-paths-and-slices.zzs`
+fails under `zuzu-perl` with
+`RuntimeError[E_RUNTIME_GENERIC]: Indexing expects Array, String, or BinaryString`
+inside `stdlib/modules/std/path/z/node.zzm:738` (`Node.children()`). This
+reproduces identically on the never-tidied `original/03-...zzs` source, so
+it is a stdlib/runtime defect unrelated to `Zuzu::Tidy`, out of scope per
+the Assumptions section. The corresponding test assertion is wrapped in a
+`todo` block with that explanation so a future fix shows up as a new,
+visible test failure rather than silently auto-passing.
 
 ### Phase 2
 
